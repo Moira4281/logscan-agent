@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logscan-agent"
+version = "0.1.0"
+description = "LLM 驱动的安全日志漏洞扫描智能体"
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=1.30.0",
+    "click>=8.1.0",
+    "rich>=13.7.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.27.0",
+]
+agentarts = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+]
+
+[project.scripts]
+logscan = "logscan.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"

@@ -1,0 +1,74 @@
+# AgentArts 部署清单（对照官方"托管智能体到运行时"文档）
+# 文档：https://support.huaweicloud.com/qs-agentarts/agentarts_04_0004.html
+# 区域固定 cn-southwest-2（贵阳一）
+
+runtime:
+  name: logscan-agent-runtime
+  region: cn-southwest-2
+  description: 安全日志漏洞扫描智能体（Web 入侵日志溯源分析）
+  # 平台规范入口：app.py 用 agentarts-sdk 的 AgentArtsRuntimeApp + @app.entrypoint
+  # 平台调用 POST /invocations，payload 为 RunRequest JSON
+  entrypoint: app.py:app
+  port: 8080
+  health_check: /ping        # SDK 自动注册
+  invocation_path: /invocations   # SDK 自动注册
+
+# 镜像要求：必须 ARM64 架构（X86 镜像调用会失败）
+# 在 ARM64 Ubuntu 22.04 上构建（如华为云鲲鹏 ECS），或用 Docker buildx
+image:
+  dockerfile: Dockerfile
+  base: python:3.10-slim
+  arch: ARM64
+  requirements: requirements.txt
+
+# 部署方式二选一
+deploy:
+  # 方法A：手动构建镜像 → 推 SWR → 控制台创建运行时
+  method_a:
+    - "docker build -t logscan-agent-runtime:latest ."
+    - "docker tag logscan-agent-runtime:latest swr.cn-southwest-2.myhuaweicloud.com/<组织>/logscan-agent-runtime:latest"
+    - "docker push swr.cn-southwest-2.myhuaweicloud.com/<组织>/logscan-agent-runtime:latest"
+    - 控制台左侧"智能体运行时" → "托管智能体" → 填配置（见下 control_panel）
+  # 方法B：SDK 一键部署（推荐快速验证）
+  method_b:
+    - "pip install agentarts-sdk"
+    - "agentarts configure --entrypoint app:app"
+    - "agentarts launch"
+
+# 控制台"托管智能体"配置项（方法A）
+control_panel:
+  镜像: 选择已推送到 SWR 的镜像
+  入栈协议: HTTP
+  入站身份认证: IAM 认证
+  监听端口: 8080
+  路由配置: 前缀配置   # 关键：否则调用返回 404
+  出网网络配置: 公网访问
+  可观测配置: 开启
+  环境变量:
+    - OPENAI_API_KEY=<仅 llm 模式需要；mock 模式可留空>
+    - OPENAI_BASE_URL=<仅 llm 模式>
+    - LOGSCAN_MODEL=<仅 llm 模式>
+
+# 调用方式
+invoke:
+  # SDK 调用
+  sdk: 'agentarts invoke --agent logscan-agent-runtime ''{"mode":"mock","sources":[{"path":"/data/access.log"}]}'''
+  # HTTP API 调用（需 IAM 或 API Key 认证）
+  http: 'POST <访问域名>/runtimes/logscan-agent-runtime/invocations/'
+
+# 暴露给平台的 Skill（工具）清单，对应 src/logscan/tools/builtin.py
+# 第二步可在控制台"单智能体配置 > 能力组件 > 技能"注册为平台原生 Skill
+skills:
+  - {name: search_logs, description: 搜索日志条目，支持 FTS5 全文搜索与字段过滤}
+  - {name: get_stats, description: 日志统计概览}
+  - {name: get_timeline, description: 指定 IP 的活动时间线}
+  - {name: get_error_sample, description: ERROR/CRITICAL 日志样本}
+  - {name: get_sample, description: 日志样本}
+  - {name: correlate_events, description: 关联分析（多 IP 共享路径 / 单 IP 路径分布）}
+  - {name: predict, description: ML 攻击分类预测（联合研判用）}
+
+# 人工复核节点
+review:
+  statuses: [CONFIRMED, NEEDS_REVIEW, FALSE_POSITIVE, AUTO_RESOLVED]
+  auto_confirm_rule: "CRITICAL 且 confidence>=0.9 且 规则+模型双通道命中 → CONFIRMED"
+  default_rule: "其余 → NEEDS_REVIEW"

@@ -1,0 +1,1 @@
+{"mode": "mock", "sources": [{"content": "192.168.1.1 - - [01/Jan/2024:10:00:00 +0000] \"GET /test HTTP/1.1\" 200 100 \"-\" \"Mozilla/5.0\""}]}

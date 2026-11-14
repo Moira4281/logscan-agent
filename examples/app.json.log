@@ -1,0 +1,10 @@
+{"timestamp": "2024-01-15T10:00:00Z", "level": "INFO", "message": "Application started", "service": "webapp"}
+{"timestamp": "2024-01-15T10:01:03Z", "level": "ERROR", "message": "SQL syntax error near 'OR '1'='1'", "source_ip": "10.0.0.66", "path": "/products", "method": "GET"}
+{"timestamp": "2024-01-15T10:01:06Z", "level": "ERROR", "message": "SQL syntax error near 'UNION SELECT * FROM users--'", "source_ip": "10.0.0.66", "path": "/products", "method": "GET"}
+{"timestamp": "2024-01-15T10:01:09Z", "level": "CRITICAL", "message": "Potential SQL injection: DROP TABLE detected", "source_ip": "10.0.0.66", "path": "/products", "method": "GET"}
+{"timestamp": "2024-01-15T10:03:01Z", "level": "WARN", "message": "Path traversal attempt: ../../etc/passwd", "source_ip": "10.0.0.77", "path": "/../../etc/passwd", "method": "GET"}
+{"timestamp": "2024-01-15T10:04:09Z", "level": "WARN", "message": "Multiple failed login attempts (8) from 10.0.0.99, then success - possible brute force", "source_ip": "10.0.0.99", "path": "/login", "method": "POST"}
+{"timestamp": "2024-01-15T10:06:06Z", "level": "CRITICAL", "message": "SSRF attempt: request to cloud metadata endpoint 169.254.169.254", "source_ip": "10.0.0.55", "path": "/api/proxy", "method": "GET"}
+{"timestamp": "2024-01-15T10:06:11Z", "level": "CRITICAL", "message": "SSRF attempt: request to internal service localhost:6379 (Redis)", "source_ip": "10.0.0.55", "path": "/api/proxy", "method": "GET"}
+{"timestamp": "2024-01-15T10:07:00Z", "level": "ERROR", "message": "Database connection pool exhausted", "service": "db"}
+{"timestamp": "2024-01-15T10:07:05Z", "level": "INFO", "message": "Health check passed", "service": "monitor"}

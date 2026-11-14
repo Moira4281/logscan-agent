@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+*.db
+*.sqlite3
+.venv/
+venv/
+
+# 本地/云端运行产物与编辑器缓存
+.arts/
+.codeartsdoer/
+.trae/
+agent_runs/
+deliverables/
+*.zip

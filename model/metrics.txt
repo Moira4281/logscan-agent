@@ -1,0 +1,38 @@
+训练日志攻击分类基线 - 评估报告
+============================================================
+模型: TF-IDF(char_wb 2-4gram) + 逻辑回归(class_weight=balanced)
+切分: StratifiedGroupKFold(5)，按 source|path 分组防泄漏
+评估: 5 折折外预测（每个样本只被没见过它的模型预测一次）
+样本总数: 488602
+整体准确率: 0.9777
+
+分类报告:
+                  precision    recall  f1-score   support
+
+      bruteforce     0.0000    0.0000    0.0000      1892
+cookie_injection     1.0000    0.9976    0.9988     13954
+         dirscan     0.9257    0.9990    0.9610      7316
+   fileinclusion     0.0213    0.0818    0.0338       966
+           log4j     0.9317    0.9424    0.9370      6862
+     log_forging     1.0000    0.9972    0.9986      7142
+          normal     0.9869    0.9900    0.9885    391130
+             rce     0.9878    0.8470    0.9120      8340
+            sqli     0.9783    0.9944    0.9862     37542
+             xss     0.9857    0.8307    0.9016     13458
+
+        accuracy                         0.9777    488602
+       macro avg     0.7817    0.7680    0.7718    488602
+    weighted avg     0.9794    0.9777    0.9782    488602
+
+混淆矩阵 (行=真实, 列=预测):
+标签顺序: bruteforce, cookie_injection, dirscan, fileinclusion, log4j, log_forging, normal, rce, sqli, xss
+bruteforce              0      0      0    122      0      0   1770      0      0      0
+cookie_injection        0  13921      0      0     30      0      3      0      0      0
+dirscan                 0      0   7309      0      1      0      4      2      0      0
+fileinclusion          13      0    586     79      0      0    254     34      0      0
+log4j                   0      0      0      0   6467      0    392      0      1      2
+log_forging             0      0      0      0     20   7122      0      0      0      0
+normal                  0      0      0   3349    264      0 387220     38    112    147
+rce                     0      0      1    155      4      0   1056   7064     47     13
+sqli                    0      0      0      0     48      0    163      0  37331      0
+xss                     0      0      0      4    107      0   1484     13    670  11180
