@@ -64,6 +64,12 @@ class RealtimeService:
         self._broadcast("stats", self.stats())
         return self.stats()
 
+    def clear(self) -> dict[str, Any]:
+        """清空缓冲与计数（不改变运行状态），并通知所有连接重建视图。"""
+        self._reset()
+        self._broadcast("clear", self.stats())
+        return self.stats()
+
     def inject(self, kind: str = "bruteforce") -> dict[str, Any]:
         if not self._gen.running:      # 未启动时点「注入」也能立刻看到效果
             self.start()

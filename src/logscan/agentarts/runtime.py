@@ -250,6 +250,11 @@ def create_app() -> FastAPI:
     def demo_rt_inject(kind: str = "bruteforce") -> dict[str, Any]:
         return get_realtime_service().inject(kind)
 
+    @app.post("/demo/realtime/clear")
+    def demo_rt_clear() -> dict[str, Any]:
+        """清空实时监测的日志/告警缓冲与累计计数（不停止采集）。"""
+        return get_realtime_service().clear()
+
     @app.get("/demo/realtime/stream")
     def demo_rt_stream(request: Request) -> StreamingResponse:
         """SSE 长连接：推送 log / alert / stats，新连接先补发最近快照。"""
