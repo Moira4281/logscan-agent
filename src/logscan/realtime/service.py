@@ -70,6 +70,17 @@ class RealtimeService:
         self._broadcast("clear", self.stats())
         return self.stats()
 
+    def ingest(self, lines: list[str]) -> dict[str, Any]:
+        """批量接入外部日志：真实采集端投递的每一行都走同一条判定链路。"""
+        accepted = 0
+        for line in lines:
+            text = str(line).strip()
+            if not text:
+                continue
+            self._on_line(text)
+            accepted += 1
+        return {"accepted": accepted, **self.stats()}
+
     def inject(self, kind: str = "bruteforce") -> dict[str, Any]:
         if not self._gen.running:      # 未启动时点「注入」也能立刻看到效果
             self.start()

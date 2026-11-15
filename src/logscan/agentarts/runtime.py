@@ -12,13 +12,14 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
 import threading
 import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from ..realtime import get_realtime_service
@@ -68,6 +69,11 @@ DEMO_MODELS: list[dict[str, str]] = [
     },
 ]
 _MODEL_BASE_URL = {m["name"]: m["base_url"] for m in DEMO_MODELS}
+
+# 实时日志投递接口的令牌（生产环境务必用环境变量覆盖）
+_INGEST_TOKEN = os.getenv("LOGSCAN_INGEST_TOKEN", "logscan-demo")
+_INGEST_MAX_LINES = 1000        # 单次最多批量条数
+_INGEST_MAX_BYTES = 2_000_000   # 单次请求体上限（约 2MB）
 
 # 演示任务状态（内存态，本地演示够用）
 _JOBS: dict[str, dict[str, Any]] = {}
@@ -254,6 +260,30 @@ def create_app() -> FastAPI:
     def demo_rt_clear() -> dict[str, Any]:
         """清空实时监测的日志/告警缓冲与累计计数（不停止采集）。"""
         return get_realtime_service().clear()
+
+    @app.post("/demo/realtime/ingest")
+    def demo_rt_ingest(
+        payload: dict[str, Any],
+        x_ingest_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        """批量投递外部日志（真实采集端接入入口）。
+
+        请求头 X-Ingest-Token 必须与 LOGSCAN_INGEST_TOKEN 一致；
+        请求体形如 {"lines": ["<一条日志>", ...]}，单次最多 1000 条。
+        """
+        if x_ingest_token != _INGEST_TOKEN:
+            raise HTTPException(status_code=401, detail="X-Ingest-Token 无效")
+        lines = payload.get("lines")
+        if not isinstance(lines, list):
+            raise HTTPException(status_code=400, detail='请求体应为 {"lines": ["<日志行>", ...]}')
+        if len(lines) > _INGEST_MAX_LINES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"单次最多 {_INGEST_MAX_LINES} 条，请分批投递",
+            )
+        if sum(len(str(x)) for x in lines) > _INGEST_MAX_BYTES:
+            raise HTTPException(status_code=413, detail="请求体过大，请分批投递")
+        return get_realtime_service().ingest(lines)
 
     @app.get("/demo/realtime/stream")
     def demo_rt_stream(request: Request) -> StreamingResponse:
