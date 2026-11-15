@@ -141,13 +141,59 @@
   .ansbody h4{margin:11px 0 6px;font-size:13.5px;color:#dbe6f7;
            border-left:3px solid var(--accent);padding-left:9px}
   .ansbody .num{display:inline-block;min-width:20px;color:var(--accent);font-weight:700}
+
+  /* ---------------- 实时监测 ---------------- */
+  .tabs{display:flex;gap:6px;margin-left:8px}
+  .tab{background:#141d31;color:var(--dim);border:1px solid var(--line);border-radius:9px;
+       padding:7px 14px;font-size:13px;font-weight:600}
+  .tab.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#08111f;border-color:transparent}
+  #rtleft .body{display:flex;flex-direction:column;gap:10px}
+  .rtstate{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--dim)}
+  .rtstate .d{width:9px;height:9px;border-radius:50%;background:var(--dim);flex:0 0 auto}
+  .rtstate.on{color:#4ade80}
+  .rtstate.on .d{background:#4ade80;box-shadow:0 0 10px #4ade80;animation:pulse 1.6s infinite}
+  .note{font-size:11.5px;color:var(--dim);background:#0d1526;border:1px dashed var(--line);
+        border-radius:8px;padding:8px 10px;line-height:1.55}
+  .note u{color:var(--accent);text-decoration:none}
+  .alert{display:flex;gap:10px;padding:9px 11px;margin-bottom:8px;border-radius:10px;
+         background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--dim);
+         animation:fade .3s ease both}
+  .alert.CRITICAL{border-left-color:var(--crit);background:rgba(255,77,79,.07)}
+  .alert.HIGH{border-left-color:var(--high);background:rgba(255,156,63,.07)}
+  .alert.MEDIUM{border-left-color:var(--med);background:rgba(255,214,102,.05)}
+  .alert.flash{animation:alflash .6s ease}
+  @keyframes alflash{0%{background:rgba(255,77,79,.28)}100%{background:transparent}}
+  .alert .ai{font-size:15px;line-height:1.5;flex:0 0 auto}
+  .alert .ab{min-width:0;flex:1}
+  .alert .ah{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .alert .ah b{font-size:13.5px}
+  .alert .rid{color:var(--dim);font-size:11px;font-family:ui-monospace,Consolas,monospace}
+  .alert .cnt{color:var(--high);font-weight:700;font-size:11.5px}
+  .alert .tm{margin-left:auto;color:var(--dim);font-size:11px}
+  .alert .am{color:#c3d0e6;font-size:12px;margin-top:3px;word-break:break-all}
+  .alert .am code{font-size:11.5px}
+  .alert .ae{color:var(--dim);font-size:11.5px;margin-top:2px}
+  .logrow{display:grid;grid-template-columns:60px 110px 1fr 40px auto;gap:8px;align-items:baseline;
+          font-family:ui-monospace,Consolas,monospace;font-size:11.8px;padding:4px 7px;
+          border-radius:6px;border-bottom:1px solid rgba(37,50,77,.4)}
+  .logrow.bad{background:rgba(255,77,79,.09)}
+  .logrow .t{color:var(--dim)}
+  .logrow .ip{color:#9fb4d6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .logrow .req{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d6e2f5}
+  .logrow .st{font-weight:700}
+  .logrow .badge{font-size:10.5px;font-weight:700;white-space:nowrap}
+  .counter{color:var(--dim);font-size:11.5px;display:flex;justify-content:space-between;gap:10px}
 </style>
 </head>
 <body>
 <header>
   <div class="brand"><span class="dot"></span>LogScan 智能体
     <small>· 安全日志漏洞扫描 · ReAct 工具调用</small></div>
-  <div class="ctrl">
+  <div class="tabs">
+    <button class="tab on" data-tab="file">文件分析</button>
+    <button class="tab" data-tab="rt">实时监测</button>
+  </div>
+  <div class="ctrl" id="filectrl">
     <label class="f">任务
       <select id="task">
         <option value="analyze">完整分析报告</option>
@@ -162,9 +208,22 @@
     <button id="go">开始分析</button>
     <button id="clear" style="background:#1a2334;color:var(--dim)">清空</button>
   </div>
+  <div class="ctrl" id="rtctrl" style="display:none">
+    <label class="f">速率
+      <select id="rtRate">
+        <option value="2">2 条/秒</option>
+        <option value="5" selected>5 条/秒</option>
+        <option value="20">20 条/秒</option>
+        <option value="100">100 条/秒</option>
+      </select>
+    </label>
+    <button id="rtStart">开始实时监测</button>
+    <button id="rtStop" style="background:#1a2334;color:var(--dim)" disabled>停止</button>
+    <button id="rtInject" style="background:linear-gradient(135deg,#ff9c3f,#ff4d4f);color:#1a0d05">注入一次攻击</button>
+  </div>
 </header>
 
-<main>
+<main id="mainFile">
   <section class="pane" id="left">
     <h2>① 日志输入</h2>
     <div class="body">
@@ -198,6 +257,54 @@
       <h2 id="outtitle">③ 分析报告</h2>
       <div class="body" id="report">
         <div class="empty">分析完成后在这里展示结构化漏洞报告。</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<main id="mainRT" style="display:none">
+  <section class="pane" id="rtleft">
+    <h2>① 实时采集控制</h2>
+    <div class="body">
+      <div class="rtstate" id="rtState"><span class="d"></span>已停止</div>
+      <div class="note">
+        日志由内置生成器实时合成，仅用于演示「采集 → 规则判定 → SSE 推送」链路，不代表真实业务流量。
+        攻击剧本会周期性注入 SQL 注入 / 路径遍历 / 文件包含 / 暴力破解 / 目录扫描；也可点上方
+        <u>注入一次攻击</u> 现场触发一轮暴力破解（约 1 秒内出告警）。
+      </div>
+      <div class="grid3">
+        <div class="stat"><b id="rtTotal">0</b><span>已采集日志</span></div>
+        <div class="stat"><b id="rtAlertsNum" style="color:var(--high)">0</b><span>告警总数</span></div>
+        <div class="stat"><b id="rtCrit" style="color:var(--crit)">0</b><span>CRITICAL</span></div>
+        <div class="stat"><b id="rtHigh" style="color:var(--high)">0</b><span>HIGH</span></div>
+        <div class="stat"><b id="rtMed" style="color:var(--med)">0</b><span>MEDIUM</span></div>
+      </div>
+      <div class="counter">
+        <span>命中可疑日志 <b id="rtSusp" style="color:var(--high)">0</b> 条</span>
+        <span id="rtConn">未连接</span>
+      </div>
+      <div class="note" style="border-style:solid">
+        规则层逐条判定（&lt;1ms/条），命中后立即推送；LLM 深度研判按需触发，
+        不参与实时逐条分析。
+      </div>
+    </div>
+  </section>
+
+  <section class="right">
+    <div class="pane">
+      <h2>② 实时告警流
+        <span class="chip" id="rtAlertCount" style="background:rgba(255,156,63,.15);color:var(--high)">0 条</span>
+      </h2>
+      <div class="body" id="rtAlerts">
+        <div class="empty">等待告警…<br>点击右上角「开始实时监测」后，命中规则的请求会实时出现在这里。</div>
+      </div>
+    </div>
+    <div class="pane">
+      <h2>③ 实时日志流
+        <span class="chip" id="rtLogCount" style="background:rgba(56,189,248,.15);color:var(--accent)">0 条</span>
+      </h2>
+      <div class="body" id="rtLogs">
+        <div class="empty">暂无日志流。<br>开始监测后这里会按秒滚动展示采集到的请求。</div>
       </div>
     </div>
   </section>
@@ -608,6 +715,173 @@ function renderReport(r) {
 
   box.innerHTML = h || '<div class="empty">报告为空</div>';
 }
+
+// ---------------- 实时监测 ----------------
+const RT = { es: null, buf: [], maxLogId: 0 };
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    const name = t.dataset.tab;
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+    $('#mainFile').style.display = name === 'file' ? '' : 'none';
+    $('#mainRT').style.display = name === 'rt' ? '' : 'none';
+    $('#filectrl').style.display = name === 'file' ? '' : 'none';
+    $('#rtctrl').style.display = name === 'rt' ? '' : 'none';
+    if (name === 'rt') connectRT();
+  };
+});
+
+function connectRT() {
+  if (RT.es) return;
+  const es = new EventSource('/demo/realtime/stream');
+  RT.es = es;
+  es.addEventListener('snapshot', e => renderRTSnapshot(JSON.parse(e.data)));
+  es.addEventListener('log', e => { RT.buf.push(JSON.parse(e.data)); });
+  es.addEventListener('alert', e => renderRTAlert(JSON.parse(e.data)));
+  es.addEventListener('stats', e => renderRTStats(JSON.parse(e.data)));
+  es.onopen = () => { $('#rtConn').textContent = 'SSE 已连接'; $('#rtConn').style.color = '#4ade80'; };
+  es.onerror = () => { $('#rtConn').textContent = '连接断开，正在重连…'; $('#rtConn').style.color = 'var(--crit)'; };
+}
+
+// 批量刷新日志 DOM，避免 100 条/秒时逐条重排
+setInterval(() => {
+  if (!RT.buf.length) return;
+  const items = RT.buf; RT.buf = [];
+  const box = $('#rtLogs');
+  if (box.querySelector('.empty')) box.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  let maxId = RT.maxLogId;
+  for (const it of items.slice().reverse()) {       // 新日志置顶
+    if (it.id <= RT.maxLogId) continue;
+    frag.appendChild(rtLogEl(it));
+    if (it.id > maxId) maxId = it.id;
+  }
+  box.prepend(frag);
+  RT.maxLogId = maxId;
+  while (box.childElementCount > 250) box.removeChild(box.lastChild);
+  $('#rtLogCount').textContent = box.childElementCount + ' 条';
+}, 150);
+
+function renderRTSnapshot(d) {
+  const logs = d.logs || [], alerts = d.alerts || [];
+  const logsBox = $('#rtLogs'), alBox = $('#rtAlerts');
+  RT.maxLogId = logs.length ? Math.max(...logs.map(x => x.id)) : 0;
+
+  logsBox.innerHTML = '';
+  const lf = document.createDocumentFragment();
+  for (const it of logs.slice().reverse()) lf.appendChild(rtLogEl(it));
+  logsBox.appendChild(lf);
+  if (!logs.length) {
+    logsBox.innerHTML = '<div class="empty">暂无日志流。<br>开始监测后这里会按秒滚动展示采集到的请求。</div>';
+  }
+
+  alBox.innerHTML = '';
+  const af = document.createDocumentFragment();
+  for (const a of alerts.slice().reverse()) af.appendChild(rtAlertEl(a));
+  alBox.appendChild(af);
+  if (!alerts.length) {
+    alBox.innerHTML = '<div class="empty">等待告警…<br>点击右上角「开始实时监测」后，命中规则的请求会实时出现在这里。</div>';
+  }
+  $('#rtAlertCount').textContent = alerts.length + ' 条';
+  $('#rtLogCount').textContent = logs.length + ' 条';
+  renderRTStats(d.stats || {});
+}
+
+function renderRTStats(s) {
+  $('#rtTotal').textContent = s.total ?? 0;
+  $('#rtAlertsNum').textContent = s.alerts ?? 0;
+  $('#rtSusp').textContent = s.suspicious ?? 0;
+  const by = s.by_severity || {};
+  $('#rtCrit').textContent = by.CRITICAL || 0;
+  $('#rtHigh').textContent = by.HIGH || 0;
+  $('#rtMed').textContent = by.MEDIUM || 0;
+
+  const on = !!s.running;
+  const el = $('#rtState');
+  el.className = 'rtstate' + (on ? ' on' : '');
+  el.innerHTML = '<span class="d"></span>' + (on ? '运行中' : '已停止') +
+    (on ? ` · 已运行 ${fmtSec(s.uptime)} · ${s.rate || 0} 条/秒` : '');
+  $('#rtStart').disabled = on;
+  $('#rtStop').disabled = !on;
+}
+
+function fmtSec(x) {
+  const n = Math.max(0, Math.floor(x || 0));
+  const m = Math.floor(n / 60), s = n % 60;
+  return m ? `${m} 分 ${s} 秒` : `${s} 秒`;
+}
+
+function renderRTAlert(a) {
+  const box = $('#rtAlerts');
+  if (box.querySelector('.empty')) box.innerHTML = '';
+  let el = document.getElementById('al-' + a.id);
+  if (el) {                       // 冷却窗口内聚合：更新计数并置顶
+    const c = el.querySelector('.cnt');
+    if (c) c.textContent = a.count > 1 ? '×' + a.count : '';
+    const tm = el.querySelector('.tm');
+    if (tm) tm.textContent = a.ts;
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    box.prepend(el);
+  } else {
+    box.prepend(rtAlertEl(a));
+  }
+  while (box.childElementCount > 120) box.removeChild(box.lastChild);
+  $('#rtAlertCount').textContent = box.childElementCount + ' 条';
+}
+
+function rtAlertEl(a) {
+  const el = document.createElement('div');
+  el.id = 'al-' + a.id;
+  el.className = 'alert ' + (a.severity || 'INFO');
+  const ico = a.severity === 'CRITICAL' ? '🚨' : a.severity === 'HIGH' ? '⚠️' : '🔎';
+  el.innerHTML = `<div class="ai">${ico}</div><div class="ab">
+      <div class="ah"><b>${esc(a.type)}</b>${sevBadge(a.severity)}
+        <span class="rid">${esc(a.rule)}</span>
+        <span class="cnt">${a.count > 1 ? '×' + a.count : ''}</span>
+        <span class="tm">${esc(a.ts)}</span></div>
+      <div class="am">${esc(a.ip)} · <code>${esc(a.path)}</code></div>
+      <div class="ae">${esc(a.evidence)}</div></div>`;
+  return el;
+}
+
+function rtLogEl(it) {
+  const el = document.createElement('div');
+  el.className = 'logrow' + (it.label === 'suspicious' ? ' bad' : '');
+  const sc = it.status >= 500 ? 'var(--crit)' : it.status >= 400 ? 'var(--high)' : '#4ade80';
+  const req = `${it.method || ''} ${it.path || ''}${it.params ? ' ?' + it.params : ''}`;
+  el.innerHTML = `<span class="t">${esc(it.ts)}</span>
+    <span class="ip" title="${esc(it.ip)}">${esc(it.ip)}</span>
+    <span class="req" title="${esc(req)}">${esc(req)}</span>
+    <span class="st" style="color:${sc}">${esc(it.status || '-')}</span>
+    <span class="badge" style="color:${SEV[it.sev] || 'var(--dim)'}">${it.sev ? esc(it.rule) : ''}</span>`;
+  return el;
+}
+
+$('#rtStart').onclick = async () => {
+  try {
+    const r = await fetch('/demo/realtime/start?rate=' + encodeURIComponent($('#rtRate').value),
+      { method: 'POST' });
+    renderRTStats(await r.json());
+  } catch (e) {
+    $('#rtConn').textContent = '启动失败：' + e.message;
+  }
+};
+
+$('#rtStop').onclick = async () => {
+  const r = await fetch('/demo/realtime/stop', { method: 'POST' });
+  renderRTStats(await r.json());
+};
+
+$('#rtInject').onclick = async () => {
+  const btn = $('#rtInject');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/demo/realtime/inject?kind=bruteforce', { method: 'POST' });
+    renderRTStats(await r.json());
+  } finally {
+    setTimeout(() => { btn.disabled = false; }, 1200);
+  }
+};
 </script>
 </body>
 </html>

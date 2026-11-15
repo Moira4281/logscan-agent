@@ -11,14 +11,17 @@
 
 from __future__ import annotations
 
+import json
+import queue
 import threading
 import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
 
+from ..realtime import get_realtime_service
 from .schemas import (
     ChatRequest,
     ChatResponse,
@@ -69,6 +72,12 @@ _MODEL_BASE_URL = {m["name"]: m["base_url"] for m in DEMO_MODELS}
 # 演示任务状态（内存态，本地演示够用）
 _JOBS: dict[str, dict[str, Any]] = {}
 _JOBS_LOCK = threading.Lock()
+
+
+def _sse(event: str, data: Any) -> str:
+    """构造一条 SSE 事件（JSON 载荷，单行 data）。"""
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    return f"event: {event}\ndata: {payload}\n\n"
 
 
 def _step_to_dict(step: Any) -> dict[str, Any]:
@@ -221,6 +230,54 @@ def create_app() -> FastAPI:
                 "result": job["result"],
                 "error": job["error"],
             }
+
+    # ---------------- 实时监测 ----------------
+    # 说明：日志由内置生成器合成，仅用于演示「采集 → 规则判定 → SSE 推送」链路。
+
+    @app.get("/demo/realtime/state")
+    def demo_rt_state() -> dict[str, Any]:
+        return get_realtime_service().stats()
+
+    @app.post("/demo/realtime/start")
+    def demo_rt_start(rate: float = 5.0) -> dict[str, Any]:
+        return get_realtime_service().start(rate)
+
+    @app.post("/demo/realtime/stop")
+    def demo_rt_stop() -> dict[str, Any]:
+        return get_realtime_service().stop()
+
+    @app.post("/demo/realtime/inject")
+    def demo_rt_inject(kind: str = "bruteforce") -> dict[str, Any]:
+        return get_realtime_service().inject(kind)
+
+    @app.get("/demo/realtime/stream")
+    def demo_rt_stream(request: Request) -> StreamingResponse:
+        """SSE 长连接：推送 log / alert / stats，新连接先补发最近快照。"""
+        svc = get_realtime_service()
+
+        def event_stream():
+            q = svc.subscribe()
+            try:
+                yield _sse("snapshot", svc.snapshot())
+                while True:
+                    try:
+                        msg = q.get(timeout=15)
+                    except queue.Empty:
+                        yield ": ping\n\n"        # 心跳，防代理断连
+                        continue
+                    yield _sse(msg["event"], msg["data"])
+            finally:
+                svc.unsubscribe(q)
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-store",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
+        )
 
     return app
 
