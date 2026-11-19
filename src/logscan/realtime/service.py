@@ -112,6 +112,7 @@ class RealtimeService:
             self._suspicious += 1
         path, params = _split_path(entry.path)
         first = hits[0] if hits else None
+        raw = (entry.raw or "")[:400]        # 原文随日志下发，供前端「追踪原文」标黄
         item = {
             "id": self._seq,
             "ts": (entry.timestamp[11:19] if len(entry.timestamp) >= 19
@@ -125,12 +126,15 @@ class RealtimeService:
             "label": "suspicious" if hits else "normal",
             "rule": first["rule"] if first else "",
             "sev": first["severity"] if first else "",
+            "raw": raw,
         }
         with self._lock:
             self.logs.append(item)
         self._broadcast("log", item)
 
         for alert in hits:
+            alert["log_id"] = item["id"]     # 关联到日志流中的那一行
+            alert["raw"] = raw
             if not alert.get("updated"):
                 self._alert_total += 1
                 self._by_sev[alert["severity"]] = self._by_sev.get(alert["severity"], 0) + 1

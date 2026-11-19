@@ -72,7 +72,9 @@ class RealTimeDetector:
         for rule, rtype, sev, keywords in _SIGNATURES:
             hit = next((k for k in keywords if k in text), None)
             if hit:
-                alerts.append(self._make(rule, rtype, sev, entry, f"命中特征「{hit}」"))
+                alerts.append(self._make(
+                    rule, rtype, sev, entry, f"命中特征「{hit}」", hit,
+                ))
                 break                      # 一条日志只归到最具体的那条签名
         alerts.extend(self._check_windows(entry))
         return alerts
@@ -122,8 +124,12 @@ class RealTimeDetector:
         sev: str,
         entry: LogEntry,
         evidence: str,
+        match: str = "",
     ) -> dict[str, Any]:
-        """生成告警；冷却窗口内同 (规则, IP) 命中则聚合并标记 updated。"""
+        """生成告警；冷却窗口内同 (规则, IP) 命中则聚合并标记 updated。
+
+        match 为命中的特征词，前端据此在原始日志里标黄。
+        """
         ip = entry.source_ip or "(无源IP)"
         key = (rule, ip)
         now = time.monotonic()
@@ -135,6 +141,7 @@ class RealTimeDetector:
             alert["updated"] = True
             alert["ts"] = _now_str()
             alert["evidence"] = evidence
+            alert["match"] = match
             hit[0] = now
             return alert
 
@@ -148,6 +155,7 @@ class RealTimeDetector:
             "ip": ip,
             "path": (entry.path or "")[:160],
             "evidence": evidence,
+            "match": match,
             "count": 1,
             "updated": False,
         }

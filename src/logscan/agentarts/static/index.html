@@ -173,6 +173,18 @@
   .alert .am{color:#c3d0e6;font-size:12px;margin-top:3px;word-break:break-all}
   .alert .am code{font-size:11.5px}
   .alert .ae{color:var(--dim);font-size:11.5px;margin-top:2px}
+  .alert{cursor:pointer}
+  .alert:hover{filter:brightness(1.07)}
+  .alert .lk{color:var(--accent);font-size:11px;font-weight:700;white-space:nowrap}
+  .alert.open .lk{color:var(--dim)}
+  .alert .det{display:none;margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+  .alert.open .det{display:block}
+  .alert .hint{color:var(--dim);font-size:11px;margin:0 0 5px}
+  .alert .rawl{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;line-height:1.6;
+    color:#c9d6ea;background:#0d1526;border:1px solid var(--line);border-radius:8px;
+    padding:7px 9px;white-space:pre-wrap;word-break:break-all}
+  .alert .rawl mark{background:#ffd666;color:#2a2100;border-radius:3px;padding:0 2px;font-weight:700}
+  .logrow.hl{background:rgba(255,214,102,.16);box-shadow:inset 0 0 0 1px rgba(255,214,102,.55)}
   .logrow{display:grid;grid-template-columns:60px 110px 1fr 40px auto;gap:8px;align-items:baseline;
           font-family:ui-monospace,Consolas,monospace;font-size:11.8px;padding:4px 7px;
           border-radius:6px;border-bottom:1px solid rgba(37,50,77,.4)}
@@ -829,10 +841,14 @@ function renderRTAlert(a) {
   if (box.querySelector('.empty')) box.innerHTML = '';
   let el = document.getElementById('al-' + a.id);
   if (el) {                       // 冷却窗口内聚合：更新计数并置顶
+    el._alert = a;
     const c = el.querySelector('.cnt');
     if (c) c.textContent = a.count > 1 ? '×' + a.count : '';
     const tm = el.querySelector('.tm');
     if (tm) tm.textContent = a.ts;
+    if (el.classList.contains('open')) {           // 展开状态下同步刷新原文
+      el.querySelector('.det').innerHTML = alertDetailHTML(a);
+    }
     el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
     box.prepend(el);
   } else {
@@ -846,19 +862,81 @@ function rtAlertEl(a) {
   const el = document.createElement('div');
   el.id = 'al-' + a.id;
   el.className = 'alert ' + (a.severity || 'INFO');
+  el._alert = a;                                  // 聚合更新时替换为最新数据
   const ico = a.severity === 'CRITICAL' ? '🚨' : a.severity === 'HIGH' ? '⚠️' : '🔎';
   el.innerHTML = `<div class="ai">${ico}</div><div class="ab">
       <div class="ah"><b>${esc(a.type)}</b>${sevBadge(a.severity)}
         <span class="rid">${esc(a.rule)}</span>
         <span class="cnt">${a.count > 1 ? '×' + a.count : ''}</span>
-        <span class="tm">${esc(a.ts)}</span></div>
+        <span class="tm">${esc(a.ts)}</span>
+        <span class="lk">追踪原文 ▸</span></div>
       <div class="am">${esc(a.ip)} · <code>${esc(a.path)}</code></div>
-      <div class="ae">${esc(a.evidence)}</div></div>`;
+      <div class="ae">${esc(a.evidence)}</div>
+      <div class="det"></div></div>`;
+  el.onclick = () => {
+    if (!el.classList.toggle('open')) return;
+    el.querySelector('.det').innerHTML = alertDetailHTML(el._alert);
+    focusLog(el._alert);
+  };
   return el;
+}
+
+// 展开的原文区：把命中特征在原始日志里标黄
+function alertDetailHTML(a) {
+  const raw = a.raw || '';
+  const kw = a.match || '';
+  const agg = (a.count || 1) > 1 ? `（已聚合 ×${a.count}，展示最近一次命中）` : '';
+  return `<div class="hint">原始日志${agg}</div>
+    <div class="rawl">${raw ? highlightRaw(raw, kw)
+      : '<span class="hint">该告警由窗口统计触发，对应日志已移出缓冲</span>'}</div>
+    <div class="hint">${kw ? '标黄部分为命中特征' : '窗口聚合类告警无单一特征词'}</div>`;
+}
+
+// URL 解码并记录每个解码字符在原文中的位置，便于在原文上定位标黄区间
+function decodeWithMap(raw) {
+  let text = '';
+  const map = [];
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === '%' && /^[0-9a-fA-F]{2}$/.test(raw.slice(i + 1, i + 3))) {
+      text += String.fromCharCode(parseInt(raw.slice(i + 1, i + 3), 16));
+      map.push(i); i += 2;
+    } else if (c === '+') {
+      text += ' '; map.push(i);
+    } else {
+      text += c; map.push(i);
+    }
+  }
+  map.push(raw.length);
+  return { text, map };
+}
+
+function highlightRaw(raw, kw) {
+  if (!kw) return esc(raw);
+  const { text, map } = decodeWithMap(raw);
+  let s = text.toLowerCase().indexOf(kw.toLowerCase());
+  let e = s >= 0 ? map[s + kw.length] : -1;
+  s = s >= 0 ? map[s] : -1;
+  if (s < 0) {                                   // 解码后仍找不到则退回原文直接匹配
+    s = raw.toLowerCase().indexOf(kw.toLowerCase());
+    e = s >= 0 ? s + kw.length : -1;
+  }
+  if (s < 0) return esc(raw);
+  return esc(raw.slice(0, s)) + '<mark>' + esc(raw.slice(s, e)) + '</mark>' + esc(raw.slice(e));
+}
+
+// 在日志流中定位并高亮告警对应的那一行
+function focusLog(a) {
+  document.querySelectorAll('.logrow.hl').forEach(x => x.classList.remove('hl'));
+  const row = document.getElementById('lg-' + a.log_id);
+  if (!row) return;
+  row.classList.add('hl');
+  row.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
 function rtLogEl(it) {
   const el = document.createElement('div');
+  el.id = 'lg-' + it.id;
   el.className = 'logrow' + (it.label === 'suspicious' ? ' bad' : '');
   const sc = it.status >= 500 ? 'var(--crit)' : it.status >= 400 ? 'var(--high)' : '#4ade80';
   const req = `${it.method || ''} ${it.path || ''}${it.params ? ' ?' + it.params : ''}`;
